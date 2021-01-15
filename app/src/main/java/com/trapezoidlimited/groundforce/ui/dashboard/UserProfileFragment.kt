@@ -4,16 +4,16 @@ import android.Manifest.permission.CAMERA
 import android.Manifest.permission.READ_EXTERNAL_STORAGE
 import android.app.Activity.RESULT_OK
 import android.app.DatePickerDialog
-import android.content.ActivityNotFoundException
-import android.content.DialogInterface
-import android.content.Intent
+import android.content.*
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.text.SpannableStringBuilder
-import androidx.fragment.app.Fragment
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -22,8 +22,14 @@ import androidx.activity.addCallback
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.bumptech.glide.Glide
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.trapezoidlimited.groundforce.EntryApplication
@@ -33,19 +39,18 @@ import com.trapezoidlimited.groundforce.api.MissionsApi
 import com.trapezoidlimited.groundforce.api.Resource
 import com.trapezoidlimited.groundforce.databinding.FragmentUserProfileBinding
 import com.trapezoidlimited.groundforce.images.BitMapConverter
+import com.trapezoidlimited.groundforce.model.BankJson
 import com.trapezoidlimited.groundforce.repository.AuthRepositoryImpl
 import com.trapezoidlimited.groundforce.utils.*
 import com.trapezoidlimited.groundforce.viewmodel.AuthViewModel
 import com.trapezoidlimited.groundforce.viewmodel.ViewModelFactory
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.GlobalScope
+import id.zelory.compressor.Compressor
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody
-import okhttp3.RequestBody.Companion.asRequestBody
 import retrofit2.Retrofit
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import java.util.*
 import javax.inject.Inject
 
@@ -63,9 +68,7 @@ class UserProfileFragment : Fragment(), AdapterView.OnItemSelectedListener {
 
     private lateinit var viewModel: AuthViewModel
 
-//    private val viewModel by lazy {
-//        EntryApplication.authViewModel(this)
-//    }
+    private var photoPath: Uri = Uri.parse("")
 
     private var _binding: FragmentUserProfileBinding? = null
     val binding get() = _binding!!
@@ -93,7 +96,15 @@ class UserProfileFragment : Fragment(), AdapterView.OnItemSelectedListener {
     private lateinit var emailAddressEditText: EditText
     private lateinit var additionalPhoneEditText: EditText
     private lateinit var residenceAddressEditText: EditText
+    private lateinit var bankDetailsEditText: EditText
+    private lateinit var accountNumberEditText: EditText
     private lateinit var isLocationVerified: String
+    private lateinit var pictureImageView: ImageView
+
+    private val gson by lazy { EntryApplication.gson }
+    private lateinit var banks: BankJson
+
+    private lateinit var bankAutoCompleteTextView: AutoCompleteTextView
 
 
     /** onCreateView over ride function **/
@@ -115,8 +126,16 @@ class UserProfileFragment : Fragment(), AdapterView.OnItemSelectedListener {
         additionalPhoneEditText = binding.fragmentUserProfileAdditionalNumberEt
         residenceAddressEditText = binding.fragmentUserProfileResidentialAddressEt
         verifyLocationTextView = binding.fragmentUserProfileVerifyLocationTv
+        accountNumberEditText = binding.fragmentUserProfileAccountNumberEt
+        pictureImageView = binding.fragmentCreateProfileOneProfileImageIv
+        bankAutoCompleteTextView =
+            (binding.fragmentUserProfileBankNameTil.editText as? AutoCompleteTextView)!!
 
-        isLocationVerified = loadFromSharedPreference(requireActivity(), LOCATION_VERIFICATION)
+        isLocationVerified = loadFromSharedPreference(requireActivity(), IS_LOCATION_VERIFIED)
+
+        if (COMPLETED_REGISTRATION == "true") {
+            binding.fragmentUserProfileHeaderBackgroundCl.visibility = View.GONE
+        }
 
 
         if (isLocationVerified == "true") {
@@ -182,6 +201,25 @@ class UserProfileFragment : Fragment(), AdapterView.OnItemSelectedListener {
             }
         })
 
+//        roomViewModel.additionalDetail.observe(viewLifecycleOwner, {
+//            if (it.isNotEmpty()) {
+//                val accountNumber = it[it.lastIndex].accountNumber
+//                val accountNumberEt = SpannableStringBuilder(accountNumber)
+//                accountNumberEditText.text = accountNumberEt
+//            }
+//        })
+
+        val bankName = loadFromSharedPreference(requireActivity(), BANKNAME)
+        val accountNumber = loadFromSharedPreference(requireActivity(), ACCOUNTNUMBER)
+
+        if (bankName.trim().isNotEmpty()) {
+            bankAutoCompleteTextView?.text =
+                SpannableStringBuilder(bankName)
+        }
+
+        val accountNumberEt = SpannableStringBuilder(accountNumber)
+        accountNumberEditText.text = accountNumberEt
+
         setArrayAdapters()
 
         return binding.root
@@ -201,23 +239,36 @@ class UserProfileFragment : Fragment(), AdapterView.OnItemSelectedListener {
         val factory = ViewModelFactory(repository, requireContext())
         viewModel = ViewModelProvider(this, factory).get(AuthViewModel::class.java)
 
+        banks = gson.fromJson(readJson(requireActivity()), BankJson::class.java)
+
         //Save Image Url in Shared Preference on Success
         viewModel.imageUrl.observe(viewLifecycleOwner, {
+
             when (it) {
                 is Resource.Success -> {
                     it.value.data?.avatarUrl?.let { urlString ->
                         saveToSharedPreference(
-                            requireActivity(), IMAGE_URL,
+                            requireActivity(), AVATAR_URL,
                             urlString
                         )
                     }
+
                     genericRepository.saveImageFromServer(
-                        loadFromSharedPreference(requireActivity(), IMAGE_URL),
+                        it.value.data!!.avatarUrl,
                         profileImageView,
                         requireActivity()
                     )
+
+                    binding.fragmentCreateProfileOneProfileImagePb.hide(binding.fragmentCreateProfileTwoBtn)
+
+                    showSnackBar(requireView(), "Profile picture successfully uploaded.")
+
                 }
                 is Resource.Failure -> {
+
+                    binding.fragmentCreateProfileOneProfileImagePb.hide(binding.fragmentCreateProfileTwoBtn)
+
+                    Log.i("Image Upload", "failed")
                     handleApiError(it, retrofit, requireView())
                 }
             }
@@ -241,23 +292,36 @@ class UserProfileFragment : Fragment(), AdapterView.OnItemSelectedListener {
             if (checkPermission()) dispatchTakePictureIntent() else requestPermission()
         }
 
-        //load the profile image from internal storage if present, else pull from api
-        if (!agentImageIsSaved()) {
-            val imageUrl = loadFromSharedPreference(requireActivity(), IMAGE_URL)
-            if (imageUrl.isNotEmpty()) {
-                genericRepository.saveImageFromServer(
-                    imageUrl,
-                    profileImageView,
-                    requireActivity()
-                )
-            }
-        } else {
-            genericRepository.getImageFromStorage(requireActivity(), profileImageView)
+//        //load the profile image from internal storage if present, else pull from api
+//        if (agentImageIsSaved()) {
+//            genericRepository.getImageFromStorage(requireActivity(), profileImageView)
+//        }
+
+        val avatarUrl = loadFromSharedPreference(requireActivity(), AVATAR_URL)
+
+        if (avatarUrl.trim().isNotEmpty()) {
+            genericRepository.saveImageFromServer(avatarUrl, pictureImageView, requireActivity())
         }
 
         verifyLocationTextView.setOnClickListener {
             findNavController().navigate(R.id.verifyLocationFragment)
         }
+
+        //BANKS
+        val bankList: MutableList<String> = mutableListOf()
+
+        for (data in banks.data) {
+            bankList.add(data.name)
+        }
+
+//        val bankAutoCompleteTextView =
+//            (binding.fragmentUserProfileBankNameTil.editText as? AutoCompleteTextView)
+
+        val adapterBanks = ArrayAdapter(requireContext(), R.layout.list_item, bankList)
+
+        bankAutoCompleteTextView?.setAdapter(adapterBanks)
+
+
     }
 
 
@@ -308,50 +372,60 @@ class UserProfileFragment : Fragment(), AdapterView.OnItemSelectedListener {
         TODO("Not yet implemented")
     }
 
+
     /** Take picture function **/
     private fun dispatchTakePictureIntent() {
-        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        try {
-            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE)
-        } catch (e: ActivityNotFoundException) {
-            // display error state to the user
-            e.message?.let { showSnackBar(requireView(), it) }
-        }
+        val fileName = "ground_force_name.jpg"
+        val values = ContentValues()
+        values.put(MediaStore.Images.Media.TITLE, fileName)
+        values.put(MediaStore.Images.Media.DESCRIPTION, "Image capture by camera")
+        photoPath = requireActivity().contentResolver.insert(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            values
+        )!!
+
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, photoPath)
+        startActivityForResult(intent, REQUEST_IMAGE_CAPTURE)
     }
 
     /** onActivityResult function place the captured image on the image view place holder **/
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-            val imageBitmap = data?.extras?.get("data") as Bitmap
+            //  val imageBitmap = data?.extras?.get("data") as Bitmap
 //            profileImageView.setImageBitmap(imageBitmap)
+
+            Glide.with(this)
+                .load(photoPath)
+                .into(pictureImageView)
+
             val dialogInterface = DialogInterface.OnClickListener { dialog, _ ->
                 Toast.makeText(requireActivity(), "Uploading", Toast.LENGTH_SHORT).show()
 
-                GlobalScope.launch {
-                    val file = BitMapConverter.toJpg(imageBitmap)
-
-                    val requestFile: RequestBody =
-                        file.asRequestBody("multipart/form-data".toMediaTypeOrNull())
-
-                    val requestImage =
-                        MultipartBody.Part.createFormData(
-                            "ground_force",
-                            "profile_image.jpg",
-                            requestFile
-                        )
-
-//                    viewModel.uploadImage(
-//                        requestImage, loadFromSharedPreference(
-//                            requireActivity(),
-//                            USERID
-//                        )
-//                    )
-                }
+                processUri(photoPath).observe(viewLifecycleOwner, {
+                    viewModel.uploadImage(it, requireActivity())
+                    binding.fragmentCreateProfileOneProfileImagePb.show(binding.fragmentCreateProfileTwoBtn)
+                })
 
                 dialog.cancel()
             }
             showAlertDialog("Update your Profile Image?", "Upload Image", dialogInterface)
         }
+    }
+
+
+    private fun processUri(uri: Uri): LiveData<Uri> {
+        val mBitmap = uriToBitmap(uri)
+        val mFile = saveBitmap(mBitmap)!!
+        val uriMutableLiveData: MutableLiveData<Uri> = MutableLiveData()
+        val uriLiveData: LiveData<Uri> = uriMutableLiveData
+
+        lifecycleScope.launch {
+            val compressedImageFile = Compressor.compress(requireContext(), mFile)
+            val mUri = compressedImageFile.toUri()
+            uriMutableLiveData.value = mUri
+        }
+        return uriLiveData
     }
 
     /** Check for user permission to access phone camera **/
@@ -466,9 +540,41 @@ class UserProfileFragment : Fragment(), AdapterView.OnItemSelectedListener {
             .build()
     }
 
+    private fun readJson(context: Context): String? {
+        var inputStream: InputStream? = null
+
+        val jsonString: String
+
+        try {
+            inputStream = context.assets.open("bank.json")
+
+            val size = inputStream.available()
+
+            val buffer = ByteArray(size)
+
+            inputStream.read(buffer)
+
+            jsonString = String(buffer)
+
+            return jsonString
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            inputStream?.close()
+        }
+
+        return null
+    }
+
 
     override fun onStart() {
         super.onStart()
         googleAccount = GoogleSignIn.getLastSignedInAccount(requireContext())
+    }
+
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

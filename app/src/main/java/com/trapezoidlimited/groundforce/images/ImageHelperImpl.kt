@@ -63,7 +63,9 @@ class ImageHelperImpl : ImageHelper {
                 }
             } catch (e: Exception) {
                 //Handle Error in case where there's no internet connection and no profile image saved.
+
                 activity.runOnUiThread {
+//                    Toast.makeText(activity, avatarUrl, Toast.LENGTH_SHORT).show()
                     Toast.makeText(activity, "No profile Picture yet", Toast.LENGTH_SHORT).show()
                 }
             }

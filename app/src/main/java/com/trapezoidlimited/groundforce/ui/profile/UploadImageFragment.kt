@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -17,8 +18,12 @@ import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.trapezoidlimited.groundforce.R
@@ -31,6 +36,8 @@ import com.trapezoidlimited.groundforce.utils.*
 import com.trapezoidlimited.groundforce.viewmodel.AuthViewModel
 import com.trapezoidlimited.groundforce.viewmodel.ViewModelFactory
 import dagger.hilt.android.AndroidEntryPoint
+import id.zelory.compressor.Compressor
+import kotlinx.coroutines.launch
 import retrofit2.Retrofit
 import javax.inject.Inject
 
@@ -101,6 +108,9 @@ class UploadImageFragment : Fragment() {
         }
 
         addPhotoImageView.setOnClickListener {
+
+            Log.i("CLICKED", "CLICKED")
+
             if (checkPermission()) dispatchTakePictureIntent() else requestPermission()
         }
 
@@ -108,15 +118,28 @@ class UploadImageFragment : Fragment() {
         viewModel.imageUrl.observe(viewLifecycleOwner, { response ->
             when (response) {
                 is Resource.Success -> {
+                    binding.fragmentUploadImageProfilePb.hide(nextProfileButton)
+
                     val avatarUrl = response.value.data?.avatarUrl
                     val publicId = response.value.data?.publicId
-                    Toast.makeText(requireContext(), avatarUrl, Toast.LENGTH_SHORT).show()
-                    nextProfileButton.text = "Continue"
+
+
                     if (avatarUrl != null) {
                         saveToSharedPreference(requireActivity(), AVATAR_URL, avatarUrl)
+                        Toast.makeText(requireContext(), avatarUrl, Toast.LENGTH_SHORT).show()
                     }
+
+                    if (publicId != null) {
+                        saveToSharedPreference(requireActivity(), PUBLIC_ID, publicId)
+                    }
+
+                    findNavController().navigate(R.id.updateProfileFragment)
+
                 }
                 is Resource.Failure -> {
+
+                    binding.fragmentUploadImageProfilePb.hide(nextProfileButton)
+
                     handleApiError(response, retrofit, requireView())
                 }
             }
@@ -124,8 +147,28 @@ class UploadImageFragment : Fragment() {
 
 
         nextProfileButton.setOnClickListener {
-            viewModel.uploadImage(photoPath, requireActivity())
+
+            processUri(photoPath).observe(viewLifecycleOwner, {
+                binding.fragmentUploadImageProfilePb.show(nextProfileButton)
+                viewModel.uploadImage(it, requireActivity())
+            })
+
         }
+
+    }
+
+    private fun processUri(uri: Uri): LiveData<Uri> {
+        val mBitmap = uriToBitmap(uri)
+        val mFile = saveBitmap(mBitmap)!!
+        val uriMutableLiveData: MutableLiveData<Uri> = MutableLiveData()
+        val uriLiveData: LiveData<Uri> = uriMutableLiveData
+
+        lifecycleScope.launch {
+            val compressedImageFile = Compressor.compress(requireContext(), mFile)
+            val mUri = compressedImageFile.toUri()
+            uriMutableLiveData.value = mUri
+        }
+        return uriLiveData
     }
 
 
@@ -164,6 +207,8 @@ class UploadImageFragment : Fragment() {
             requireContext(), Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(
             requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE
+        ) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(
+            requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE
         ) == PackageManager.PERMISSION_GRANTED)
     }
 
@@ -172,7 +217,8 @@ class UploadImageFragment : Fragment() {
         ActivityCompat.requestPermissions(
             requireActivity(), arrayOf(
                 Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.CAMERA
+                Manifest.permission.CAMERA,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
             ),
             PERMISSION_REQUEST_CODE
         )
@@ -202,9 +248,9 @@ class UploadImageFragment : Fragment() {
     }
 
 
-    override fun onDestroy() {
-        super.onDestroy()
-        _binding = null!!
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 
 }

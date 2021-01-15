@@ -2,6 +2,7 @@ package com.trapezoidlimited.groundforce.utils
 
 import android.app.Activity
 import android.content.Intent
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
@@ -13,7 +14,67 @@ import com.trapezoidlimited.groundforce.room.RoomViewModel
 import com.trapezoidlimited.groundforce.ui.main.MainActivity
 import retrofit2.Retrofit
 import java.io.File
+import java.lang.Exception
+import java.lang.StringBuilder
 
+
+fun Fragment.handleApiError(
+    roomViewModel: RoomViewModel,
+    activity: Activity,
+    failure: Resource.Failure,
+    retrofit: Retrofit,
+    view: View,
+    message: String = "",
+    navDestinationId: Int = 0
+) {
+    val errorUtils = ErrorUtils(retrofit)
+
+    when {
+        failure.isNetworkError -> {
+            showSnackBar(view, "Please confirm network connection")
+        }
+
+        else -> {
+            try {
+
+                val error = failure.errorBody?.let { it1 -> errorUtils.parseError(it1) }
+
+                val errorMessage = error?.errors?.message
+
+                if (failure.errorCode == UNAUTHORIZED) {
+
+                    logOut(roomViewModel, activity)
+                }
+
+                if (errorMessage == message) {
+
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT)
+                        .show()
+                    findNavController().navigate(navDestinationId)
+
+                } else {
+
+                    if (errorMessage != null) {
+                        showSnackBar(requireView(), errorMessage)
+                    } else {
+                        Toast.makeText(
+                            requireContext(),
+                            "Something went wrong!",
+                            Toast.LENGTH_SHORT
+                        )
+                            .show()
+                    }
+
+                }
+
+            } catch (e: Exception) {
+                showSnackBar(requireView(), "Bad request. Check input again.")
+            }
+
+
+        }
+    }
+}
 
 fun Fragment.handleApiError(
     failure: Resource.Failure,
@@ -30,28 +91,38 @@ fun Fragment.handleApiError(
         }
 
         else -> {
-            val error = failure.errorBody?.let { it1 -> errorUtils.parseError(it1) }
+            try {
 
-            val errorMessage = error?.errors?.message
+                val error = failure.errorBody?.let { it1 -> errorUtils.parseError(it1) }
 
-            if (errorMessage == message) {
+                val errorMessage = error?.errors?.message
 
-                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT)
-                    .show()
-                findNavController().navigate(navDestinationId)
+                println("RUNNING")
 
-            } else {
-                //error?.errors?.let { showSnackBar(view, it.message!!) }
-                if (errorMessage != null) {
-                    showSnackBar(requireView(), errorMessage)
+                if (errorMessage == message) {
+
+                    println("RUNS")
+
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT)
+                        .show()
+                    findNavController().navigate(navDestinationId)
+
+
+                } else {
+                    //error?.errors?.let { showSnackBar(view, it.message!!) }
+                    if (errorMessage != null) {
+                        showSnackBar(requireView(), errorMessage)
+                    }
                 }
-            }
 
-            //Log.i("ERROR", "$errorMessage")
+            } catch (e: Exception) {
+                showSnackBar(requireView(), "Bad request. Check input again.")
+            }
 
         }
     }
 }
+
 
 fun Activity.handleApiError(
     failure: Resource.Failure,
@@ -66,11 +137,16 @@ fun Activity.handleApiError(
         }
 
         else -> {
-            val error = failure.errorBody?.let { it1 -> errorUtils.parseError(it1) }
-            error?.errors?.let { showSnackBar(view, it.message!!) }
+            try {
+                val error = failure.errorBody?.let { it1 -> errorUtils.parseError(it1) }
+                error?.errors?.let { showSnackBar(view, it.message!!) }
+            } catch (e: Exception) {
+                Toast.makeText(this, "Bad request. Check input again.", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
+
 
 //Hide and Show Progress Bars
 fun ProgressBar.hide(button: Button? = null) {
@@ -87,24 +163,88 @@ fun ProgressBar.show(button: Button? = null) {
     }
 }
 
-fun Fragment.logOut(roomViewModel: RoomViewModel) {
 
-    fun Fragment.logOut() {
-        if (loadFromSharedPreference(requireActivity(), TOKEN).isEmpty()) {
-            Intent(requireActivity(), MainActivity::class.java).also {
-                saveToSharedPreference(requireActivity(), LOG_OUT, "true")
-                roomViewModel.deleteAllMission()
-                roomViewModel.deleteAllOngoingMission()
-                roomViewModel.deleteAllAgentDetails()
-                startActivity(it)
-                requireActivity().finish()
-            }
-        }
+fun Fragment.logOut(roomViewModel: RoomViewModel, activity: Activity) {
+
+    Intent(activity, MainActivity::class.java).also {
+        saveToSharedPreference(activity, TOKEN, "")
+        saveToSharedPreference(activity, LOG_OUT, "true")
+        roomViewModel.deleteAllMission()
+        roomViewModel.deleteAllOngoingMission()
+        roomViewModel.deleteAllAgentDetails()
+        startActivity(it)
+        requireActivity().finish()
     }
+
+
 
     fun agentImageIsSaved(activity: Activity): Boolean {
         val path = File(activity.filesDir, "GroundForce${File.separator}Images")
         val file = File(path, GROUND_FORCE_IMAGE_NAME)
         return file.exists()
     }
+
+}
+
+fun Fragment.splitDate(date: String): String {
+    val splittedDate = date.split("-")
+    val year = splittedDate[0]
+    val month = splittedDate[1]
+    val day = splittedDate[2].substring(0, 2)
+    var monthInWord = ""
+
+    val stringBuilder = StringBuilder()
+
+    when (month) {
+        "01" -> {
+            monthInWord = "Jan"
+        }
+        "02" -> {
+            monthInWord = "Feb"
+        }
+        "03" -> {
+            monthInWord = "Mar"
+        }
+        "04" -> {
+            monthInWord = "Apr"
+
+        }
+        "05" -> {
+            monthInWord = "May"
+
+        }
+        "06" -> {
+            monthInWord = "Jun"
+
+        }
+        "07" -> {
+            monthInWord = "Jul"
+
+        }
+        "08" -> {
+            monthInWord = "Aug"
+
+        }
+        "09" -> {
+            monthInWord = "Sept"
+
+        }
+        "10" -> {
+            monthInWord = "Oct"
+
+        }
+        "11" -> {
+            monthInWord = "Nov"
+
+        }
+        "12" -> {
+            monthInWord = "Dec"
+
+        }
+
+    }
+
+    return stringBuilder.append(day).append(" ").append(monthInWord).append(",").append(" ")
+        .append(year).toString()
+
 }

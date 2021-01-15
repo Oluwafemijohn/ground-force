@@ -11,6 +11,10 @@ import android.widget.EditText
 import androidx.navigation.fragment.findNavController
 import com.trapezoidlimited.groundforce.R
 import com.trapezoidlimited.groundforce.databinding.FragmentChangePasswordBinding
+import com.trapezoidlimited.groundforce.ui.auth.PhoneActivationFragmentDirections
+import com.trapezoidlimited.groundforce.utils.PASSWORD
+import com.trapezoidlimited.groundforce.utils.loadFromSharedPreference
+import com.trapezoidlimited.groundforce.utils.showSnackBar
 
 
 class ChangePasswordFragment : Fragment() {
@@ -45,8 +49,10 @@ class ChangePasswordFragment : Fragment() {
         binding.fragmentChangePasswordPushButton8.setOnClickListener { setPin(8) }
         binding.fragmentChangePasswordPushButton9.setOnClickListener { setPin(9) }
 
+        pinText = binding.fragmentChangePasswordPinView.text.toString()
+
         binding.fragmentChangePasswordDeleteIv.setOnClickListener {
-            pinText = binding.fragmentChangePasswordPinView.text.toString()
+
             if (pinText.isNotEmpty()) {
                 pinText = pinText.substring(0, pinText.length - 1)
                 editable = SpannableStringBuilder(pinText)
@@ -55,7 +61,19 @@ class ChangePasswordFragment : Fragment() {
         }
 
         binding.fragmentChangePasswordResetBtn.setOnClickListener {
-            findNavController().navigate(R.id.action_changePasswordFragment_to_createNewPasswordFragment)
+
+            val currentPassword = loadFromSharedPreference(requireActivity(), PASSWORD)
+            val pin = binding.fragmentChangePasswordPinView.text.toString()
+
+
+            if (currentPassword == pin) {
+                val action = ChangePasswordFragmentDirections.actionChangePasswordFragmentToCreateNewPasswordFragment(pin)
+                findNavController().navigate(action)
+            } else {
+                showSnackBar(binding.fragmentChangePasswordResetBtn, "Incorrect Password!")
+            }
+
+
         }
 
     }
@@ -69,8 +87,9 @@ class ChangePasswordFragment : Fragment() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
+
+    override fun onDestroyView() {
+        super.onDestroyView()
         _binding = null
     }
 

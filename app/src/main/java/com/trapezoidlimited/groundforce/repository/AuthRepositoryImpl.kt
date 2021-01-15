@@ -7,6 +7,7 @@ import com.trapezoidlimited.groundforce.api.MissionsApi
 import com.trapezoidlimited.groundforce.api.Resource
 import com.trapezoidlimited.groundforce.model.request.*
 import com.trapezoidlimited.groundforce.model.response.*
+import com.trapezoidlimited.groundforce.utils.EMAIL
 import com.trapezoidlimited.groundforce.utils.USERID
 import com.trapezoidlimited.groundforce.utils.getRealPathFromUri
 import com.trapezoidlimited.groundforce.utils.loadFromSharedPreference
@@ -27,13 +28,21 @@ constructor(
     private val missionsApi: MissionsApi
 ) : BaseRepository(), AuthRepository {
 
+    /** Auth Requests */
+
     override suspend fun login(loginRequest: LoginRequest): Resource<GenericResponseClass<LoginResponse>> =
         safeApiCall {
             apiService.login(loginRequest)
         }
 
-    override suspend fun forgotPassword(email: String) = safeApiCall {
-        apiService.forgotPassword(email)
+    override suspend fun forgotPassword(forgotPasswordRequest: ForgotPasswordRequest): Resource<GenericResponseClass<ForgotPasswordResponse>>
+    = safeApiCall {
+        apiService.forgotPassword(forgotPasswordRequest)
+    }
+
+    override suspend fun resetPassword(resetPasswordRequest: ResetPasswordRequest): Resource<GenericResponseClass<ResetPasswordResponse>>
+    = safeApiCall {
+        apiService.resetPassword(resetPasswordRequest)
     }
 
     override suspend fun verifyPhone(phone: VerifyPhoneRequest): Resource<GenericResponseClass<VerifyPhoneResponse>> =
@@ -51,20 +60,17 @@ constructor(
             apiService.registerUser(agent)
         }
 
-    override suspend fun verifyEmail(email: String): Resource<GenericResponseClass<VerifyEmailResponse>> =
+    override suspend fun verifyEmail(email: VerifyEmailAddressRequest): Resource<GenericResponseClass<VerifyEmailResponse>> =
         safeApiCall {
             apiService.verifyEmail(email)
         }
 
-    override suspend fun confirmEmail(email: String, verificationCode: String):
+    override suspend fun confirmEmail(confirmEmailAddressRequest: ConfirmEmailAddressRequest):
             Resource<GenericResponseClass<ConfirmEmailResponse>> = safeApiCall {
-        apiService.confirmEmail(email, verificationCode)
+        apiService.confirmEmail(confirmEmailAddressRequest)
     }
 
-    override suspend fun getUser(id: String): Resource<GenericResponseClass<UserResponse>> =
-        safeApiCall {
-            apiService.getUser(id)
-        }
+    /** User Requests */
 
 
     override suspend fun getUser(
@@ -88,9 +94,9 @@ constructor(
         apiService.verifyAccount(token, verifyAccountRequest)
     }
 
-    override suspend fun changePassword(changePasswordRequest: ChangePasswordRequest)
+    override suspend fun changePassword( token: String, changePasswordRequest: ChangePasswordRequest)
             : Resource<GenericResponseClass<ChangePasswordResponse>> = safeApiCall {
-        apiService.changePassword(changePasswordRequest)
+        apiService.changePassword(token, changePasswordRequest)
     }
 
     override suspend fun verifyLocation(
@@ -99,6 +105,8 @@ constructor(
     ): Resource<GenericResponseClass<VerifyLocationResponse>> = safeApiCall {
         apiService.verifyLocation(token, verifyLocationRequest)
     }
+
+    /** Mission Requests */
 
     override suspend fun
             getMissions(token: String, agentId: String, status: String, page: String):
@@ -117,6 +125,14 @@ constructor(
         missionsApi.submitMission(token, submitMissionRequest)
     }
 
+    override suspend fun getBuildingType(
+        token: String,
+        page: Int
+    ): Resource<GenericResponseClass<GetBuildingTypeResponse>> = safeApiCall {
+        missionsApi.getBuildingType(token, page)
+    }
+
+    /** Survey Requests */
     override suspend fun submitMission(submitMissionRequest: SubmitMissionRequest): Resource<GenericResponseClass<SubmitMissionResponse>> {
         TODO("Not yet implemented")
     }
@@ -143,5 +159,57 @@ constructor(
         apiService.updatePicture(token, reqBody)
     }
 
+
+    override suspend fun updateSurveyStatus(
+        token: String,
+        updateSurveyStatusRequest: UpdateSurveyStatusRequest
+    ): Resource<GenericResponseClass<UpdateSurveyStatusResponse>> = safeApiCall{
+        apiService.updateSurveyStatus(token, updateSurveyStatusRequest)
+    }
+
+    override suspend fun submitSurvey(
+        token: String,
+        submitSurveyRequest: SubmitSurveyRequest
+    ): Resource<GenericResponseClass<SubmitSurveyResponse>> = safeApiCall {
+        apiService.submitSurvey(token, submitSurveyRequest)
+    }
+
+    override suspend fun getSurvey(
+        token: String,
+        agentId: String,
+        status: String,
+        page: Int
+    ): Resource<GenericResponseClass<GetSurveyResponse>> = safeApiCall{
+        apiService.getSurvey(token, agentId, status, page)
+    }
+
+    override suspend fun getSurveyById(
+        token: String,
+        surveyId: String
+    ): Resource<GenericResponseClass<GetSurveyByIDResponse>> = safeApiCall {
+        apiService.getSurveyById(token, surveyId)
+    }
+
+    override suspend fun getQuestionById(
+        token: String,
+        questionId: String
+    ): Resource<GenericResponseClass<GetQuestionByIDResponse>> = safeApiCall {
+        apiService.getQuestionById(token, questionId)
+    }
+
+    override suspend fun getNotificationsByUserId(
+        token: String,
+        userId: String,
+        page: String
+    ): Resource<GenericResponseClass<GetNotificationsResponse>> = safeApiCall {
+        apiService.getNotificationsByUserId(token, userId, page)
+    }
+
+    override suspend fun getAllNotifications(
+        token: String,
+        page: Int
+    ): Resource<GenericResponseClass<GetAllNotificationsResponse>> = safeApiCall {
+        apiService.getAllNotifications(token, page)
+    }
 
 }

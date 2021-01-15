@@ -2,9 +2,16 @@ package com.trapezoidlimited.groundforce.utils
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.app.Activity
 import android.content.DialogInterface
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.view.View
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
@@ -13,6 +20,13 @@ import com.trapezoidlimited.groundforce.R
 import com.trapezoidlimited.groundforce.ui.dialog.FailedDialog
 import com.trapezoidlimited.groundforce.ui.dialog.VerifiedDialog
 import com.trapezoidlimited.groundforce.ui.dialog.WelcomeDialog
+import retrofit2.http.Url
+import java.io.File
+import java.io.FileNotFoundException
+import java.io.FileOutputStream
+import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 
 /**
@@ -141,6 +155,21 @@ fun Fragment.showAlertDialog(
     alert.show()
 }
 
+fun Activity.showAlertDialog(
+    message: String,
+    title: String,
+    dialogInterface: DialogInterface.OnClickListener
+) {
+    val dialogBuilder = AlertDialog.Builder(this)
+    dialogBuilder.setMessage(message)
+        .setPositiveButton("Yes", dialogInterface)
+        .setNegativeButton("Cancel", null)
+
+    val alert = dialogBuilder.create()
+    alert.setTitle(title)
+    alert.show()
+}
+
 fun showSnackBar(view: View, message: String) {
     Snackbar.make(
         view,
@@ -148,5 +177,47 @@ fun showSnackBar(view: View, message: String) {
         Snackbar.LENGTH_LONG
     ).setAction("Ok") {}.show()
 }
+
+
+fun Fragment.uriToBitmap(uriImage: Uri): Bitmap? {
+    var mBitmap: Bitmap? = null
+    if (Build.VERSION.SDK_INT < 28) {
+        mBitmap = MediaStore.Images.Media.getBitmap(
+            requireActivity().contentResolver,
+            uriImage
+        )
+    } else {
+        val source = ImageDecoder.createSource(requireActivity().contentResolver, uriImage)
+        mBitmap = ImageDecoder.decodeBitmap(source)
+    }
+    return mBitmap
+}
+
+fun Fragment.saveBitmap(bmp: Bitmap?): File? {
+    val extStorageDirectory = requireActivity().getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    var outStream: OutputStream? = null
+    var file: File? = null
+    val time = System.currentTimeMillis()
+    val child = "JPEG_${time}_.jpg"
+    // String temp = null;
+    if (extStorageDirectory != null) {
+        file = File(extStorageDirectory, child)
+        if (file.exists()) {
+            file.delete()
+            file = File(extStorageDirectory, child)
+        }
+        try {
+            outStream = FileOutputStream(file)
+            bmp?.compress(Bitmap.CompressFormat.JPEG, 100, outStream)
+            outStream.flush()
+            outStream.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+    return file
+}
+
 
 

@@ -53,6 +53,12 @@ class CreateProfileFragmentOne : Fragment() {
         // Inflate the layout for this fragment
         _binding = FragmentCreateProfileOneBinding.inflate(inflater, container, false)
 
+        binding.fragmentCreateProfileOneIc.toolbarFragment.setNavigationIcon(R.drawable.ic_arrow_back)
+
+        binding.fragmentCreateProfileOneIc.toolbarFragment.setNavigationOnClickListener {
+            findNavController().navigate(R.id.emailVerificationTwo)
+        }
+
 
         return binding.root
     }
@@ -93,7 +99,8 @@ class CreateProfileFragmentOne : Fragment() {
 
                 Log.i("DOB", loadFromSharedPreference(requireActivity(), DOB))
 
-                findNavController().navigate(R.id.createProfileFragmentTwo)
+                //findNavController().navigate(R.id.createProfileFragmentTwo)
+                findNavController().navigate(R.id.action_createProfileFragmentOne_to_locationsVerificationFragment)
             }
 
         }
@@ -178,9 +185,9 @@ class CreateProfileFragmentOne : Fragment() {
 
     }
 
-    override fun onDestroy() {
+    override fun onDestroyView() {
+        super.onDestroyView()
         _binding = null
-        super.onDestroy()
     }
 
 }

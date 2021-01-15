@@ -6,6 +6,7 @@ import android.content.DialogInterface
 import android.content.Intent
 import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
 import android.os.Looper
@@ -24,6 +25,7 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
 import com.google.android.gms.tasks.Task
+import com.trapezoidlimited.groundforce.EntryApplication
 import com.trapezoidlimited.groundforce.R
 import com.trapezoidlimited.groundforce.api.ApiService
 import com.trapezoidlimited.groundforce.api.MissionsApi
@@ -37,6 +39,7 @@ import com.trapezoidlimited.groundforce.viewmodel.ViewModelFactory
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.fragment_locations_verification.*
 import retrofit2.Retrofit
+import java.util.*
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -63,11 +66,13 @@ class LocationsVerificationFragment : Fragment() {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var locationRequest: LocationRequest
     private lateinit var locationCallback: LocationCallback
-    private var currentLocation: Location? = null
     private var shortAnimationDuration: Int = 0
     private lateinit var skipProgressBar: ProgressBar
     private lateinit var skipButton: Button
     private lateinit var agentData: AgentDataRequest
+
+    private var latitude: Double = 0.0
+    private var longitude: Double = 0.0
 
 
     override fun onCreateView(
@@ -114,42 +119,45 @@ class LocationsVerificationFragment : Fragment() {
 
         DataListener.currentScreen = LOCATION_VERIFICATION_SCREEN
 
+        val geocoder = Geocoder(requireContext(), Locale.getDefault())
+
+
         /** set navigation to go to the previous screen on click of navigation arrow **/
         binding.fragmentLocationVerificationTb.toolbarTransparentFragment.setNavigationOnClickListener {
-            findNavController().popBackStack()
+            findNavController().navigate(R.id.createProfileFragmentOne)
         }
 
 
-        viewModel.agentCreationResponse.observe(viewLifecycleOwner, {
-
-            when (it) {
-                is Resource.Success -> {
-
-                    val userId = it.value.data?.loginToken?.id
-                    val userToken = it.value.data?.loginToken?.token
-
-                    /**Saving user's id to sharedPreference */
-                    saveToSharedPreference(requireActivity(), USERID, userId!!)
-
-                    /** Saving token to sharedPreference */
-
-                    SessionManager.save(requireContext(), TOKEN, userToken!!)
-
-                    //saveToSharedPreference(requireActivity(), TOKEN, userToken!! )
-
-                    skipProgressBar.hide(skipButton)
-
-                    findNavController().navigate(R.id.waitingFragment)
-
-                }
-                is Resource.Failure -> {
-                    //setVisibility(okTextView)
-                    skipProgressBar.hide(skipButton)
-                    handleApiError(it, retrofit, requireActivity().view)
-                }
-            }
-
-        })
+//        viewModel.agentCreationResponse.observe(viewLifecycleOwner, {
+//
+//            when (it) {
+//                is Resource.Success -> {
+//
+//                    val userId = it.value.data?.loginToken?.id
+//                    val userToken = it.value.data?.loginToken?.token
+//
+//                    /**Saving user's id to sharedPreference */
+//                    saveToSharedPreference(requireActivity(), USERID, userId!!)
+//
+//                    /** Saving token to sharedPreference */
+//
+//                    SessionManager.save(requireContext(), TOKEN, userToken!!)
+//
+//                    //saveToSharedPreference(requireActivity(), TOKEN, userToken!! )
+//
+//                    skipProgressBar.hide(skipButton)
+//
+//                    findNavController().navigate(R.id.waitingFragment)
+//
+//                }
+//                is Resource.Failure -> {
+//                    //setVisibility(okTextView)
+//                    skipProgressBar.hide(skipButton)
+//                    handleApiError(it, retrofit, requireActivity().view)
+//                }
+//            }
+//
+//        })
 
 
 
@@ -169,18 +177,36 @@ class LocationsVerificationFragment : Fragment() {
                 super.onLocationResult(locationResult)
 
                 if (locationResult?.lastLocation != null) {
-                    var lat = locationResult.lastLocation.latitude.toString()
-                    var long = locationResult.lastLocation.longitude.toString()
-                    currentLocation = locationResult.lastLocation
+                    val lat = locationResult.lastLocation.latitude.toString()
+                    val long = locationResult.lastLocation.longitude.toString()
+                    latitude = locationResult.lastLocation.latitude
+                    longitude = locationResult.lastLocation.longitude
 
                     binding.verifyingLocationStatusTv.text = "Latitude: $lat, Longitude: $long"
 
+
+                    val addresses = geocoder.getFromLocation(latitude, longitude, 5)
+                    val addressLine = addresses[0].getAddressLine(0)
+                    val city = addresses[0].locality
+                    val state = addresses[0].adminArea
+                    val country = addresses[0].countryName
+                    val lga = addresses[0].subLocality
+
+                    println(addressLine)
+                    println(city)
+                    println(state)
+                    println(lga)
 
                     /** Saving LAT and LONG in sharedPreference*/
 
                     saveToSharedPreference(requireActivity(), LATITUDE, lat)
                     saveToSharedPreference(requireActivity(), LONGITUDE, long)
-                    saveToSharedPreference(requireActivity(), LOCATION_VERIFICATION, "true")
+                    //saveToSharedPreference(requireActivity(), LOCATION_VERIFICATION, "true")
+                    saveToSharedPreference(requireActivity(), ADDRESS, addressLine)
+                    saveToSharedPreference(requireActivity(), STATE, state)
+                    saveToSharedPreference(requireActivity(), GENDER, "m")
+                    saveToSharedPreference(requireActivity(), LGA, lga)
+
 
                     setSuccessDialog()
 
@@ -192,58 +218,65 @@ class LocationsVerificationFragment : Fragment() {
 
             override fun onLocationAvailability(p0: LocationAvailability?) {
                 Log.i("GPSSTATUSCHANGE", "GPS is ${p0?.isLocationAvailable ?: false}")
-
             }
         }
 
         /** requesting location permission **/
         requestLocationPermission()
 
+
         /** setting the welcome dialog when user clicks skip for now **/
 
         skipButton.setOnClickListener {
 
-            skipProgressBar.show(skipButton)
+            //skipProgressBar.show(skipButton)
 
-            saveToSharedPreference(requireActivity(), LOCATION_VERIFICATION, "false")
-
-            val lastName = loadFromSharedPreference(requireActivity(), LASTNAME)
-            val firstName = loadFromSharedPreference(requireActivity(), FIRSTNAME)
-            val phoneNumber = loadFromSharedPreference(requireActivity(), PHONE)
-            val gender = loadFromSharedPreference(requireActivity(), GENDER)
-            val dob = loadFromSharedPreference(requireActivity(), DOB)
-            val email = loadFromSharedPreference(requireActivity(), EMAIL)
-            val password = loadFromSharedPreference(requireActivity(), PASSWORD)
-            val residentialAddress = loadFromSharedPreference(requireActivity(), ADDRESS)
-            val state = loadFromSharedPreference(requireActivity(), STATE)
-            val lga = loadFromSharedPreference(requireActivity(), LGA)
-            val zipCode = loadFromSharedPreference(requireActivity(), ZIPCODE)
-            val longitude = loadFromSharedPreference(requireActivity(), LONGITUDE)
-            val latitude = loadFromSharedPreference(requireActivity(), LATITUDE)
-
-            agentData = AgentDataRequest(
-                lastName = lastName,
-                firstName = firstName,
-                phoneNumber = phoneNumber,
-                gender = gender,
-                dob = dob,
-                email = email,
-                password = password,
-                residentialAddress = residentialAddress,
-                state = state,
-                lga = lga,
-                zipCode = zipCode,
-                longitude = longitude,
-                latitude = latitude,
-                roles = listOf("agent")
-            )
-
-
-            viewModel.registerAgent(agentData)
+//            saveToSharedPreference(requireActivity(), LOCATION_VERIFICATION, "false")
+//
+//            val lastName = loadFromSharedPreference(requireActivity(), LASTNAME)
+//            val firstName = loadFromSharedPreference(requireActivity(), FIRSTNAME)
+//            val phoneNumber = loadFromSharedPreference(requireActivity(), PHONE)
+//            val gender = loadFromSharedPreference(requireActivity(), GENDER)
+//            val dob = loadFromSharedPreference(requireActivity(), DOB)
+//            val email = loadFromSharedPreference(requireActivity(), EMAIL)
+//            val password = loadFromSharedPreference(requireActivity(), PASSWORD)
+//            val residentialAddress = loadFromSharedPreference(requireActivity(), ADDRESS)
+//            val state = loadFromSharedPreference(requireActivity(), STATE)
+//            val lga = loadFromSharedPreference(requireActivity(), LGA)
+//            val zipCode = loadFromSharedPreference(requireActivity(), ZIPCODE)
+//            val longitude = loadFromSharedPreference(requireActivity(), LONGITUDE)
+//            val latitude = loadFromSharedPreference(requireActivity(), LATITUDE)
+//
+//            agentData = AgentDataRequest(
+//                lastName = lastName,
+//                firstName = firstName,
+//                phoneNumber = phoneNumber,
+//                gender = gender,
+//                dob = dob,
+//                email = email,
+//                password = password,
+//                residentialAddress = residentialAddress,
+//                state = state,
+//                lga = lga,
+//                zipCode = zipCode,
+//                longitude = longitude,
+//                latitude = latitude,
+//                roles = listOf("agent")
+//            )
 
 
+            //viewModel.registerAgent(agentData)
 
-            findNavController().navigate(R.id.waitingFragment)
+            //saveToSharedPreference(requireActivity(), LOCATION_VERIFICATION, "false")
+            saveToSharedPreference(requireActivity(), LATITUDE, "")
+            saveToSharedPreference(requireActivity(), LONGITUDE, "")
+            saveToSharedPreference(requireActivity(), LGA, "Nil")
+            saveToSharedPreference(requireActivity(), STATE, "Nil")
+            saveToSharedPreference(requireActivity(), ADDRESS, "Nil")
+
+            findNavController().navigate(R.id.createProfileFragmentTwo)
+
+
         }
 
     }
@@ -396,8 +429,9 @@ class LocationsVerificationFragment : Fragment() {
 //        }
 //    }
 
-    override fun onDestroy() {
-        super.onDestroy()
+
+    override fun onDestroyView() {
+        super.onDestroyView()
         _binding = null
     }
 }

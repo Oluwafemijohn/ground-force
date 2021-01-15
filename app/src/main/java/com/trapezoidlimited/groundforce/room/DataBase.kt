@@ -6,8 +6,10 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [RoomAgent::class, RoomAdditionalDetail::class, RoomMission::class, RoomOngoingMission::class],
-    version = 9,
+    entities = [RoomAgent::class, RoomAdditionalDetail::class,
+        RoomMission::class, RoomOngoingMission::class, RoomSurvey::class,
+        RoomHistoryMission::class, RoomHistorySurvey::class, RoomNotification::class],
+    version = 19,
     exportSchema = false
 )
 abstract class DataBase : RoomDatabase() {

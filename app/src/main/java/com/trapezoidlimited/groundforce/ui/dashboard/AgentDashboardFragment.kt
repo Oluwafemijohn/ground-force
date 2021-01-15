@@ -1,7 +1,7 @@
 package com.trapezoidlimited.groundforce.ui.dashboard
 
-import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -26,7 +26,9 @@ import dagger.hilt.android.AndroidEntryPoint
 import retrofit2.Retrofit
 import javax.inject.Inject
 import com.trapezoidlimited.groundforce.room.RoomAgent
-import com.trapezoidlimited.groundforce.ui.main.MainActivity
+import com.trapezoidlimited.groundforce.viewmodel.MissionsViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 @AndroidEntryPoint
@@ -47,9 +49,12 @@ class AgentDashboardFragment : Fragment() {
     private lateinit var dashBoardCard: CardView
 
     private lateinit var viewModel: AuthViewModel
+
     private lateinit var incompleteUserDetailsConstraintLayout: ConstraintLayout
     private lateinit var userId: String
-    private lateinit var isRegistrationCompleted: String
+    private lateinit var isVerified: String
+    private var missionCompleted = 0
+    private var surveyCompleted = 0
 
 
     override fun onCreateView(
@@ -63,7 +68,7 @@ class AgentDashboardFragment : Fragment() {
         }
 
         /** initializing views **/
-        incompleteUserDetailsConstraintLayout = binding.fragmentAgentDashboardCl
+        incompleteUserDetailsConstraintLayout = binding.fragmentAgentDashboardIncompleteProfileCl
 
 //        /** Checking and logging user out if user has no authorization **/
 //
@@ -73,6 +78,7 @@ class AgentDashboardFragment : Fragment() {
         val factory = ViewModelFactory(repository, requireContext())
 
         viewModel = ViewModelProvider(this, factory).get(AuthViewModel::class.java)
+
 
 
         userId = loadFromSharedPreference(requireActivity(), USERID)
@@ -110,19 +116,22 @@ class AgentDashboardFragment : Fragment() {
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
 
+        /** Setting date  **/
+
+        val sdf = SimpleDateFormat("MMM d, yyyy")
+        val formattedDate = sdf.format(Calendar.getInstance().time)
+
+        binding.agentDashFragmentDateTv.text = formattedDate
 
 
         val firstName = loadFromSharedPreference(requireActivity(), FIRSTNAME)
 
         dashBoardCard = binding.agentDashboardFragmentSummaryContainerCv
-        isRegistrationCompleted = loadFromSharedPreference(requireActivity(), COMPLETED_REGISTRATION)
+        isVerified = loadFromSharedPreference(requireActivity(), IS_VERIFIED)
 
-        if (isRegistrationCompleted == "true") {
-            setInVisibility(incompleteUserDetailsConstraintLayout)
-        } else {
-            setVisibility(incompleteUserDetailsConstraintLayout)
-        }
+        /** Checking if User is verified */
 
+        checkUserVerified(isVerified)
 
         /** Set firstName from shared preference if isn't present  **/
 
@@ -131,6 +140,16 @@ class AgentDashboardFragment : Fragment() {
             val savedName = "Hello $firstName"
             binding.agentDashboardFragmentNameTv.text = savedName
         }
+
+        roomViewModel.historyMission.observe(viewLifecycleOwner, {
+            missionCompleted = it.size
+            binding.fragmentAgentDashboardMissionCompletedTv.text = "$missionCompleted"
+        })
+
+        roomViewModel.historySurvey.observe(viewLifecycleOwner, {
+            surveyCompleted = it.size
+            binding.fragmentAgentDashboardHistoryCompletedTv.text = "$surveyCompleted"
+        })
 
 
         binding.fragmentAgentDashboardMissionsButtonIb.setOnClickListener {
@@ -175,6 +194,26 @@ class AgentDashboardFragment : Fragment() {
 
                     val name = response.value.data?.firstName
 
+                    val avatarUrl = response.value.data?.avatarUrl
+
+                    val isVerified = response.value.data?.isVerified.toString()
+
+                    println(isVerified)
+
+                    val isLocationVerified = response.value.data?.isLocationVerified.toString()
+
+                    if (avatarUrl != null) {
+                        saveToSharedPreference(requireActivity(), AVATAR_URL, avatarUrl)
+                    }
+
+                    saveToSharedPreference(requireActivity(), IS_VERIFIED, isVerified)
+
+                    saveToSharedPreference(requireActivity(), IS_LOCATION_VERIFIED, isLocationVerified)
+
+
+                    /** Checking if User is verified */
+
+                    checkUserVerified(isVerified)
 
                     binding.fragmentAgentDashboardCl.visibility = View.VISIBLE
 
@@ -182,7 +221,11 @@ class AgentDashboardFragment : Fragment() {
 
                     /** Adding Agent Details to Room Database */
 
-                    Toast.makeText(requireContext(), response.value.data?.firstName!!, Toast.LENGTH_SHORT)
+                    Toast.makeText(
+                        requireContext(),
+                        response.value.data?.firstName!!,
+                        Toast.LENGTH_SHORT
+                    )
                         .show()
 
 
@@ -203,20 +246,20 @@ class AgentDashboardFragment : Fragment() {
                 }
                 is Resource.Failure -> {
                     binding.fragmentAgentDashboardLl.visibility = View.GONE
-                    if (response.errorCode == UNAUTHORIZED) {
-                        saveToSharedPreference(requireActivity(), TOKEN, "")
-                        Intent(requireContext(), MainActivity::class.java).also {
-                            saveToSharedPreference(requireActivity(), LOG_OUT, "true")
-                            startActivity(it)
-                            requireActivity().finish()
-                        }
 
-                    }else {
-                        handleApiError(response, retrofit, requireView())
-                    }
+
+                    handleApiError(
+                        roomViewModel,
+                        requireActivity(),
+                        response,
+                        retrofit,
+                        requireView()
+                    )
+
                 }
             }
         })
+
 
 
         binding.agentDashboardUpdateNowBtn.setOnClickListener {
@@ -232,11 +275,22 @@ class AgentDashboardFragment : Fragment() {
             }
         }
 
+
+    }
+
+    private fun checkUserVerified(isVerified: String) {
+
+        if (isVerified == "true") {
+            Log.d("IS_VERIFIED", "RUNS")
+            setInVisibility(incompleteUserDetailsConstraintLayout)
+        } else {
+            setVisibility(incompleteUserDetailsConstraintLayout)
+        }
     }
 
 
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onDestroyView() {
+        super.onDestroyView()
         _binding = null
     }
 }

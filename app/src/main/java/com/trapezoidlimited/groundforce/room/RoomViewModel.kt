@@ -4,6 +4,9 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
 import com.trapezoidlimited.groundforce.data.AgentObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -17,11 +20,20 @@ class RoomViewModel(private val repository: RoomRepository) : ViewModel() {
 
     var mission: LiveData<List<RoomMission>> = repository.readAllMissions()
 
+    var historyMission: LiveData<List<RoomHistoryMission>> = repository.readAllHistoryMissions()
+
+    var historySurvey: LiveData<List<RoomHistorySurvey>> = repository.readAllHistorySurveys()
+
+    var notifications: LiveData<List<RoomNotification>> = repository.readAllNotifications()
+
+    var survey: LiveData<List<RoomSurvey>> = repository.readAllSurveys()
+
     var ongoingMission: LiveData<List<RoomOngoingMission>> = repository.readAllOngoingMissions()
 
     private var _agentObjectA: MutableLiveData<List<RoomAgent>> = MutableLiveData()
     val agentObjectA: LiveData<List<RoomAgent>>
         get() = _agentObjectA
+
 
     fun addAgent(agent: RoomAgent) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -53,9 +65,66 @@ class RoomViewModel(private val repository: RoomRepository) : ViewModel() {
         }
     }
 
+    fun addHistoryMission(historyMission: RoomHistoryMission) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.addHistoryMission(historyMission)
+        }
+    }
+
+    fun deleteAllHistoryMission() {
+        viewModelScope.launch {
+            repository.deleteAllHistoryMissions()
+        }
+    }
+
+
+    fun addNotification(notification: RoomNotification) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.addNotification(notification)
+        }
+    }
+
+
+    fun deleteAllNotifications() {
+        viewModelScope.launch {
+            repository.deleteAllNotifications()
+        }
+    }
+
+    fun deleteByNotificationId(notificationId: String) {
+        viewModelScope.launch {
+            repository.deleteByNotificationId(notificationId)
+        }
+    }
+
+
     fun deleteAllMission() {
         viewModelScope.launch {
             repository.deleteAllMissions()
+        }
+    }
+
+    fun deleteByHistoryMissionId(historyMissionId: String) {
+        viewModelScope.launch {
+            repository.deleteByHistoryMissionId(historyMissionId)
+        }
+    }
+
+    fun addHistorySurvey(historySurvey: RoomHistorySurvey) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.addHistorySurvey(historySurvey)
+        }
+    }
+
+    fun deleteAllHistorySurvey() {
+        viewModelScope.launch {
+            repository.deleteAllHistorySurveys()
+        }
+    }
+
+    fun deleteByHistorySurveyId(historySurveyId: String) {
+        viewModelScope.launch {
+            repository.deleteByHistorySurveyId(historySurveyId)
         }
     }
 
@@ -94,5 +163,25 @@ class RoomViewModel(private val repository: RoomRepository) : ViewModel() {
             repository.deleteAllAgentDetails()
         }
     }
+
+    fun addSurvey(survey: RoomSurvey){
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.addSurvey(survey)
+        }
+    }
+
+
+    fun deleteAllSurveys(){
+        viewModelScope.launch {
+            repository.deleteAllSurveys()
+        }
+    }
+
+    fun deleteBySurveyId(surveyId: String) {
+        viewModelScope.launch {
+            repository.deleteBySurveyId(surveyId)
+        }
+    }
+
 
 }

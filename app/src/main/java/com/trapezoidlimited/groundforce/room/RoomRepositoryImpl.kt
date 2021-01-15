@@ -24,6 +24,54 @@ class RoomRepositoryImpl(private val dao: RoomDao) : RoomRepository {
         dao.addMission(mission)
     }
 
+    override suspend fun addHistoryMission(mission: RoomHistoryMission) {
+        dao.addHistoryMission(mission)
+    }
+
+    override fun readAllHistoryMissions(): LiveData<List<RoomHistoryMission>> {
+       return dao.readAllHistoryMissions()
+    }
+
+    override suspend fun deleteAllHistoryMissions() {
+        dao.deleteAllHistoryMissions()
+    }
+
+    override suspend fun deleteByHistoryMissionId(historyMissionId: String) {
+        dao.deleteByHistoryMissionId(historyMissionId)
+    }
+
+    override suspend fun addHistorySurvey(survey: RoomHistorySurvey) {
+        dao.addHistorySurvey(survey)
+    }
+
+    override fun readAllHistorySurveys(): LiveData<List<RoomHistorySurvey>> {
+        return dao.readAllHistorySurveys()
+    }
+
+    override suspend fun deleteAllHistorySurveys() {
+        dao.deleteAllHistorySurveys()
+    }
+
+    override suspend fun deleteByHistorySurveyId(historySurveyId: String) {
+        dao.deleteByHistorySurveyId(historySurveyId)
+    }
+
+    override suspend fun addNotification(notification: RoomNotification) {
+        dao.addNotification(notification)
+    }
+
+    override fun readAllNotifications(): LiveData<List<RoomNotification>> {
+        return dao.readAllAddNotifications()
+    }
+
+    override suspend fun deleteAllNotifications() {
+        dao.deleteAllAddNotifications()
+    }
+
+    override suspend fun deleteByNotificationId(notificationId: String) {
+        dao.deleteByNotificationId(notificationId)
+    }
+
     override fun readAgent(): LiveData<List<RoomAgent>> {
         return dao.readAgent()
     }
@@ -67,6 +115,22 @@ class RoomRepositoryImpl(private val dao: RoomDao) : RoomRepository {
 
     override suspend fun readAgentA(): List<RoomAgent> {
        return dao.readAgentA()
+    }
+
+    override suspend fun addSurvey(survey: RoomSurvey) {
+        return dao.addSurvey(survey)
+    }
+
+    override fun readAllSurveys(): LiveData<List<RoomSurvey>> {
+        return dao.readAllSurveys()
+    }
+
+    override suspend fun deleteAllSurveys() {
+        return dao.deleteAllSurveys()
+    }
+
+    override suspend fun deleteBySurveyId(surveyId: String) {
+        return dao.deleteBySurveyId(surveyId)
     }
 
 

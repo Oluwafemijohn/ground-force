@@ -3,11 +3,15 @@ package com.trapezoidlimited.groundforce.ui.dashboard
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.text.SpannableStringBuilder
 import android.util.Log
 import android.view.View
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import com.google.gson.Gson
 import com.trapezoidlimited.groundforce.EntryApplication
 import com.trapezoidlimited.groundforce.R
 import com.trapezoidlimited.groundforce.api.ApiService
@@ -48,8 +52,10 @@ class MissionReportActivity : AppCompatActivity() {
     private lateinit var nearestBusStop: String
     private lateinit var typeOfStructure: String
     private lateinit var additionalComments: String
+    private lateinit var buildingTypeId: String
     private lateinit var latitude: String
     private lateinit var longitude: String
+    private  var position: Int = 0
 
     private lateinit var binding: ActivityMissionReportBinding
 
@@ -67,6 +73,14 @@ class MissionReportActivity : AppCompatActivity() {
 
         viewModel = ViewModelProvider(this, factory).get(MissionsViewModel::class.java)
 
+        latitude = loadFromSharedPreference(this, LATITUDE)
+        longitude = loadFromSharedPreference(this, LONGITUDE)
+
+        val coordinate = "$latitude and $longitude"
+        val coordinateEt = SpannableStringBuilder(coordinate)
+
+        binding.activityMissionReportCoordTil.editText?.text = coordinateEt
+
 
         val bundle: Bundle? = intent.extras
 
@@ -74,6 +88,12 @@ class MissionReportActivity : AppCompatActivity() {
             missionId = bundle.getString("MISSIONID")!!
             missionPosition = bundle.getInt("POSITION")
         }
+
+
+        /** Network call to get building type **/
+
+        viewModel.getBuildingType(1)
+
 
         /** validating fields **/
 
@@ -92,43 +112,40 @@ class MissionReportActivity : AppCompatActivity() {
         binding.fragmentMissionReportToolBarLl.toolbarFragment.setNavigationOnClickListener {
             finish()
         }
-        val addressExists = binding.activityMissionReportNoOneRb.isChecked || binding.activityMissionReportYesOneRb.isChecked
 
 
-        viewModel.updateMissionStatusResponse.observe(this, Observer {
+        val buildingTypeList = mutableListOf<String>()
+        val buildingTypeIDList = mutableListOf<String>()
+
+        viewModel.getBuildingTypeResponse.observe(this, {
             when (it) {
-                is Resource.Success -> {
-                    Toast.makeText(this, "Verified", Toast.LENGTH_SHORT).show()
+                is Resource.Success ->{
+                    val buildingTypeObjectList = it.value.data?.data
 
-                    val submitMissionRequest = SubmitMissionRequest(
-                        missionId,
-                        "7facf1a8-dd39-4c56-967d-a24786e31301",
-                        nearestLandmark,
-                        nearestBusStop,
-                        "Dark Green",
-                        addressExists,
-                        typeOfStructure,
-                        longitude,
-                        latitude,
-                        additionalComments
-                    )
+                    if (buildingTypeObjectList != null) {
 
-                    /*** Making network call to submit mission **/
 
-                    viewModel.submitMission(submitMissionRequest)
+                        for (buildingTypeObject in buildingTypeObjectList) {
 
-                    Log.i("MISSIONID", missionId)
+                            val buildingTypeName = buildingTypeObject.typeName
+                            val buildingTypeID = buildingTypeObject.typeId
 
-                    Log.i("POSITION", "$missionPosition")
+                            buildingTypeList.add(buildingTypeName)
+                            buildingTypeIDList.add(buildingTypeID)
 
+                        }
+
+                    }
                 }
                 is Resource.Failure -> {
-                    binding.activityMissionReportPb.visibility = View.GONE
-                    handleApiError(it, retrofit, view)
+                   handleApiError(it, retrofit, view)
                 }
             }
-
         })
+
+
+        val addressExists = binding.activityMissionReportNoOneRb.isChecked || binding.activityMissionReportYesOneRb.isChecked
+
 
         viewModel.submitMissionResponse.observe(this, Observer {
             when (it) {
@@ -136,7 +153,7 @@ class MissionReportActivity : AppCompatActivity() {
                     binding.activityMissionReportPb.visibility = View.GONE
                     binding.activityMissionReportSubmitBtn.isEnabled = true
 
-                    Toast.makeText(this, "Submit", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Submitted", Toast.LENGTH_SHORT).show()
 
                     /*** Making network call to submit mission **/
                     roomViewModel.deleteByOngoingMissionId(missionId)
@@ -148,11 +165,25 @@ class MissionReportActivity : AppCompatActivity() {
 
                 }
                 is Resource.Failure -> {
+
+                    Toast.makeText(this, "Not Submitted", Toast.LENGTH_SHORT).show()
+
                     binding.activityMissionReportPb.visibility = View.GONE
+                    binding.activityMissionReportSubmitBtn.isEnabled = true
                     handleApiError(it, retrofit, view)
                 }
             }
         })
+
+
+        /*** Populating the dropdown with list of building type **/
+
+        val adapterBuildingType = ArrayAdapter(this, R.layout.list_item, buildingTypeList)
+
+        (binding.activityMissionReportStructureTil.editText as? AutoCompleteTextView)?.setAdapter(
+            adapterBuildingType
+        )
+
 
 
         binding.activityMissionReportSubmitBtn.setOnClickListener {
@@ -161,9 +192,6 @@ class MissionReportActivity : AppCompatActivity() {
 
             binding.activityMissionReportSubmitBtn.isEnabled = false
 
-            /*** Making network call to verified mission **/
-
-            viewModel.updateMissionStatus(missionId, "verified")
 
             /*** creating submit mission object **/
 
@@ -173,10 +201,32 @@ class MissionReportActivity : AppCompatActivity() {
             additionalComments =
                 binding.activityMissionReportCommentsTil.editText?.text.toString()
 
-            latitude = loadFromSharedPreference(this, LATITUDE)
-            longitude = loadFromSharedPreference(this, LONGITUDE)
+
+            position = buildingTypeList.indexOf(typeOfStructure)
+
+            buildingTypeId = buildingTypeIDList[position]
+
+
+            val submitMissionRequest = SubmitMissionRequest(
+                missionId,
+                buildingTypeId,
+                nearestLandmark,
+                nearestBusStop,
+                "Dark Green",
+                addressExists,
+                typeOfStructure,
+                longitude,
+                latitude,
+                additionalComments
+            )
+
+            /*** Making network call to submit mission **/
+
+            viewModel.submitMission(submitMissionRequest)
 
         }
+
+
 
         binding.activityMissionReportCancelBtn.setOnClickListener {
 
@@ -188,6 +238,8 @@ class MissionReportActivity : AppCompatActivity() {
 
 
     }
+
+
 
     private fun validateFields() {
         val fields: MutableList<JDataClass> = mutableListOf(

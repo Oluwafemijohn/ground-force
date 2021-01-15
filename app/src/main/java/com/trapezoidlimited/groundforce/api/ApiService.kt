@@ -2,10 +2,10 @@ package com.trapezoidlimited.groundforce.api
 
 
 import com.trapezoidlimited.groundforce.model.request.*
-import com.trapezoidlimited.groundforce.model.response.ParentResponse
 import com.trapezoidlimited.groundforce.model.response.*
-import okhttp3.MultipartBody
+import com.trapezoidlimited.groundforce.model.response.UpdateSurveyStatusResponse
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.http.*
 
 /**
@@ -21,16 +21,21 @@ interface ApiService {
 
     /**
      * Query to make a network call to the forgot endpoint */
-    @FormUrlEncoded
-    @POST("endpoint")
+
+    @POST("Auth/forgot-password")
     suspend fun forgotPassword(
-        @Field("email") email: String
-    ): ForgotPasswordResponse
+        @Body forgotPasswordRequest: ForgotPasswordRequest
+    ): GenericResponseClass<ForgotPasswordResponse>
 
     @POST("Auth/verify-phone")
     suspend fun verifyPhone(
         @Body phone: VerifyPhoneRequest
     ): GenericResponseClass<VerifyPhoneResponse>
+
+    @POST("Auth/reset-password")
+    suspend fun resetPassword(
+        @Body resetPasswordRequest: ResetPasswordRequest
+    ): GenericResponseClass<ResetPasswordResponse>
 
     @POST("Auth/confirm-otp")
     suspend fun confirmPhone(
@@ -60,20 +65,20 @@ interface ApiService {
 
     @PATCH("User/change-password")
     suspend fun changePassword(
+        @Header("Authorization") token: String,
         @Body changePasswordRequest: ChangePasswordRequest
     ): GenericResponseClass<ChangePasswordResponse>
 
-    @Multipart
+
     @POST("Auth/verify-email")
     suspend fun verifyEmail(
-        @Part email: String
+        @Body email: VerifyEmailAddressRequest
     ): GenericResponseClass<VerifyEmailResponse>
 
-    @Multipart
-    @POST("Auth/verify-email")
+
+    @POST("Auth/confirm-email")
     suspend fun confirmEmail(
-        @Part email: String,
-        @Part verificationCode: String
+        @Body confirmEmailAddressRequest: ConfirmEmailAddressRequest
     ): GenericResponseClass<ConfirmEmailResponse>
 
     @PATCH("User/picture")
@@ -101,21 +106,35 @@ interface ApiService {
     suspend fun updateSurveyStatus(
         @Header("Authorization") token: String,
         @Body updateSurveyStatusRequest: UpdateSurveyStatusRequest
-    ): GenericResponseClass<UpdateMissionStatusResponse>
+    ): GenericResponseClass<UpdateSurveyStatusResponse>
 
     @POST("Survey/submit-survey")
     suspend fun submitSurvey(
         @Header("Authorization") token: String,
         @Body submitSurveyRequest: SubmitSurveyRequest
-    ): GenericResponseClass<UpdateMissionStatusResponse>
+    ): GenericResponseClass<SubmitSurveyResponse>
 
     @GET("Survey/{agentId}/{status}/{page}")
     suspend fun getSurvey(
         @Header("Authorization") token: String,
         @Path("agentId") agentId: String,
         @Path("status") status: String,
-        @Path("page") page: String
-    ): GenericResponseClass<UpdateMissionStatusResponse>
+        @Path("page") page: Int
+    ): GenericResponseClass<GetSurveyResponse>
+
+    @GET("Survey/survey-questions/{surveyId}")
+    suspend fun getSurveyById(
+        @Header("Authorization") token: String,
+        @Path("surveyId") surveyId : String,
+    ): GenericResponseClass<GetSurveyByIDResponse>
+
+    @GET("Survey/question/{questionId}")
+    suspend fun getQuestionById(
+        @Header("Authorization") token: String,
+        @Path("questionId") questionId : String,
+    ): GenericResponseClass<GetQuestionByIDResponse>
+
+
 
     /**Notifications Endpoints*/
 
@@ -125,5 +144,11 @@ interface ApiService {
         @Path("userId") userId: String,
         @Path("page") page: String
     ): GenericResponseClass<GetNotificationsResponse>
+
+    @GET("Notification/{page}/all-notifications")
+    suspend fun getAllNotifications(
+        @Header("Authorization") token: String,
+        @Path("page") page: Int
+    ): GenericResponseClass<GetAllNotificationsResponse>
 
 }
