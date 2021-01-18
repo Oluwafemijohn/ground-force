@@ -49,6 +49,7 @@ class AgentDashboardFragment : Fragment() {
     private lateinit var dashBoardCard: CardView
 
     private lateinit var viewModel: AuthViewModel
+    private lateinit var mViewModel: MissionsViewModel
 
     private lateinit var incompleteUserDetailsConstraintLayout: ConstraintLayout
     private lateinit var userId: String
@@ -78,10 +79,14 @@ class AgentDashboardFragment : Fragment() {
         val factory = ViewModelFactory(repository, requireContext())
 
         viewModel = ViewModelProvider(this, factory).get(AuthViewModel::class.java)
-
+        mViewModel = ViewModelProvider(this, factory).get(MissionsViewModel::class.java)
 
 
         userId = loadFromSharedPreference(requireActivity(), USERID)
+
+
+        mViewModel.getMissions(userId, "verified", "1")
+        viewModel.getSurvey(userId, "completed", 1)
 
         roomViewModel.readAgent()
 
@@ -118,13 +123,11 @@ class AgentDashboardFragment : Fragment() {
 
         /** Setting date  **/
 
-        val sdf = SimpleDateFormat("MMM d, yyyy")
+        val sdf = SimpleDateFormat("MMM d, yyyy", Locale.US)
         val formattedDate = sdf.format(Calendar.getInstance().time)
 
         binding.agentDashFragmentDateTv.text = formattedDate
 
-
-        val firstName = loadFromSharedPreference(requireActivity(), FIRSTNAME)
 
         dashBoardCard = binding.agentDashboardFragmentSummaryContainerCv
         isVerified = loadFromSharedPreference(requireActivity(), IS_VERIFIED)
@@ -133,23 +136,6 @@ class AgentDashboardFragment : Fragment() {
 
         checkUserVerified(isVerified)
 
-        /** Set firstName from shared preference if isn't present  **/
-
-
-        if (firstName.isNotEmpty()) {
-            val savedName = "Hello $firstName"
-            binding.agentDashboardFragmentNameTv.text = savedName
-        }
-
-        roomViewModel.historyMission.observe(viewLifecycleOwner, {
-            missionCompleted = it.size
-            binding.fragmentAgentDashboardMissionCompletedTv.text = "$missionCompleted"
-        })
-
-        roomViewModel.historySurvey.observe(viewLifecycleOwner, {
-            surveyCompleted = it.size
-            binding.fragmentAgentDashboardHistoryCompletedTv.text = "$surveyCompleted"
-        })
 
 
         binding.fragmentAgentDashboardMissionsButtonIb.setOnClickListener {
@@ -184,6 +170,41 @@ class AgentDashboardFragment : Fragment() {
             findNavController().navigate(R.id.action_agentDashboardFragment_to_historyFragment)
         }
 
+        mViewModel.getMissionResponse.observe(viewLifecycleOwner, {
+
+            when(it) {
+                is Resource.Success -> {
+                    val missionCompleted = it.value.data?.data?.size
+
+                    if (it.value.data?.data != null) {
+                        binding.fragmentAgentDashboardMissionCompletedTv.text = "$missionCompleted"
+                    }
+
+                }
+                is Resource.Failure -> {
+                    println(it.errorCode.toString())
+                }
+            }
+        })
+
+        viewModel.getSurveyResponse.observe(viewLifecycleOwner, {
+
+            when(it) {
+                is Resource.Success -> {
+                    val surveyCompleted = it.value.data?.userSurveyToReturn?.size
+
+                    if (it.value.data?.userSurveyToReturn != null) {
+                        binding.fragmentAgentDashboardHistoryCompletedTv.text = "$surveyCompleted"
+                    }
+
+                }
+                is Resource.Failure -> {
+                    println(it.errorCode.toString())
+                }
+            }
+
+        })
+
 
         viewModel.getUserDetailsResponse.observe(viewLifecycleOwner, { response ->
 
@@ -192,13 +213,18 @@ class AgentDashboardFragment : Fragment() {
 
                     binding.fragmentAgentDashboardLl.visibility = View.GONE
 
-                    val name = response.value.data?.firstName
+                    val firstName = response.value.data?.firstName.toString()
+
+                    val lastName = response.value.data?.lastName
 
                     val avatarUrl = response.value.data?.avatarUrl
 
                     val isVerified = response.value.data?.isVerified.toString()
 
-                    println(isVerified)
+                    val bank = response.value.data?.bankName.toString()
+
+                    val accountNum = response.value.data?.accountNumber.toString()
+
 
                     val isLocationVerified = response.value.data?.isLocationVerified.toString()
 
@@ -206,18 +232,27 @@ class AgentDashboardFragment : Fragment() {
                         saveToSharedPreference(requireActivity(), AVATAR_URL, avatarUrl)
                     }
 
+                    if (lastName != null) {
+                        saveToSharedPreference(requireActivity(), LASTNAME, lastName)
+                    }
+
+                    saveToSharedPreference(requireActivity(), FIRSTNAME, firstName)
+
                     saveToSharedPreference(requireActivity(), IS_VERIFIED, isVerified)
 
                     saveToSharedPreference(requireActivity(), IS_LOCATION_VERIFIED, isLocationVerified)
+
+                    saveToSharedPreference(requireActivity(), BANKNAME, bank)
+
+                    saveToSharedPreference(requireActivity(), ACCOUNTNUMBER, accountNum)
 
 
                     /** Checking if User is verified */
 
                     checkUserVerified(isVerified)
 
-                    binding.fragmentAgentDashboardCl.visibility = View.VISIBLE
 
-                    binding.agentDashboardFragmentNameTv.text = "Hello $name"
+                    binding.fragmentAgentDashboardCl.visibility = View.VISIBLE
 
                     /** Adding Agent Details to Room Database */
 
@@ -260,6 +295,12 @@ class AgentDashboardFragment : Fragment() {
             }
         })
 
+
+        /** Setting firstName  **/
+
+        val name = loadFromSharedPreference(requireActivity(), FIRSTNAME)
+
+        binding.agentDashboardFragmentNameTv.text = "Hello $name"
 
 
         binding.agentDashboardUpdateNowBtn.setOnClickListener {

@@ -150,7 +150,7 @@ class AuthViewModel(
 
     private val _getSurveyResponse: MutableLiveData<Resource<GenericResponseClass<GetSurveyResponse>>> =
         MutableLiveData()
-    val getSurveyResponse: MutableLiveData<Resource<GenericResponseClass<GetSurveyResponse>>>
+    val getSurveyResponse: LiveData<Resource<GenericResponseClass<GetSurveyResponse>>>
         get() = _getSurveyResponse
 
 
@@ -213,7 +213,7 @@ class AuthViewModel(
     }
 
     fun putUser(user: PutUserRequest) = viewModelScope.launch {
-        _putUserResponse.value = repository.putUser(user)
+        _putUserResponse.value = repository.putUser(token, user)
     }
 
 

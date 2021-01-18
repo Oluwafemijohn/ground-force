@@ -109,10 +109,15 @@ class UploadImageFragment : Fragment() {
 
         addPhotoImageView.setOnClickListener {
 
-            Log.i("CLICKED", "CLICKED")
-
-            if (checkPermission()) dispatchTakePictureIntent() else requestPermission()
+            if (checkPermission()) {
+                dispatchTakePictureIntent()
+            } else {
+                requestPermission()
+            }
         }
+
+
+
 
 
         viewModel.imageUrl.observe(viewLifecycleOwner, { response ->
@@ -207,8 +212,6 @@ class UploadImageFragment : Fragment() {
             requireContext(), Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(
             requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE
-        ) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(
-            requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE
         ) == PackageManager.PERMISSION_GRANTED)
     }
 
