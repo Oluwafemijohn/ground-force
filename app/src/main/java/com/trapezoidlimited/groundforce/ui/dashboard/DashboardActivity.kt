@@ -214,10 +214,9 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
 
                 val dialogInterface = DialogInterface.OnClickListener { dialog, _ ->
 
-                    SessionManager.save(this, TOKEN, "")
-                    SessionManager.save(this, AVATAR_URL, "")
-                    SessionManager.save(this, FIRSTNAME, "")
-                    SessionManager.save(this, LASTNAME, "")
+                    SessionManager.clearSharedPref(this)
+                    saveToSharedPreference(this, ONBOARD, "true")
+
                     Intent(this, MainActivity::class.java).also {
                         saveToSharedPreference(this, LOG_OUT, "true")
                         roomViewModel.deleteAllMission()
@@ -272,12 +271,21 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     }
 
     private fun loadImageFromNetwork() {
+
         val photoUrl = loadFromSharedPreference(this, AVATAR_URL)
 
-        Glide.with(this)
-            .load(photoUrl)
-            .placeholder(R.drawable.agent_icon)
-            .into(profileImage)
+        try {
+            if (photoUrl != "null") {
+                Glide.with(this)
+                    .load(photoUrl)
+                    .placeholder(R.drawable.agent_icon)
+                    .into(profileImage)
+            }
+        } catch (e: Exception) {
+            println(photoUrl)
+        }
+
+
     }
 
 }

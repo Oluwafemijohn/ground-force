@@ -111,15 +111,19 @@
             app:nullable="true" />
 
         <action
-            android:id="@+id/action_createProfileFragmentOne_to_locationsVerificationFragment"
-            app:destination="@id/locationsVerificationFragment" />
+            android:id="@+id/action_createProfileFragmentOne_to_createProfileFragmentTwo"
+            app:destination="@id/createProfileFragmentTwo" />
     </fragment>
 
     <fragment
         android:id="@+id/createProfileFragmentTwo"
         android:name="com.trapezoidlimited.groundforce.ui.profile.CreateProfileFragmentTwo"
         android:label="fragment_create_profile_two"
-        tools:layout="@layout/fragment_create_profile_two"/>
+        tools:layout="@layout/fragment_create_profile_two">
+        <action
+            android:id="@+id/action_createProfileFragmentTwo_to_locationsVerificationFragment"
+            app:destination="@id/locationsVerificationFragment" />
+    </fragment>
 
 
     <fragment
@@ -129,10 +133,11 @@
         tools:layout="@layout/fragment_locations_verification"
         >
 
-
-        <action
-            android:id="@+id/action_locationsVerificationFragment_to_createProfileFragmentTwo"
-            app:destination="@id/createProfileFragmentTwo" />
+        <argument
+            android:name="geopoints"
+            app:argType="com.trapezoidlimited.groundforce.model.GeoPoints"
+            app:nullable="true"
+            android:defaultValue="@null" />
     </fragment>
 
     <fragment
@@ -188,6 +193,9 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_emailVerificationOne_to_createProfileFragmentOne"
+            app:destination="@id/createProfileFragmentOne" />
     </fragment>
 
 
@@ -209,6 +217,9 @@
         <deepLink
             android:id="@+id/deepLink"
             app:uri="groundforce.com/email-verification/{otp}" />
+        <action
+            android:id="@+id/action_emailVerificationTwo_to_emailVerificationOne"
+            app:destination="@id/emailVerificationOne" />
     </fragment>
 
 

@@ -1,5 +1,6 @@
 package com.trapezoidlimited.groundforce.ui.dashboard
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.fragment.app.Fragment
@@ -18,7 +19,9 @@ import com.trapezoidlimited.groundforce.api.ApiService
 import com.trapezoidlimited.groundforce.api.MissionsApi
 import com.trapezoidlimited.groundforce.api.Resource
 import com.trapezoidlimited.groundforce.databinding.FragmentAgentDashboardBinding
+import com.trapezoidlimited.groundforce.model.BankJson
 import com.trapezoidlimited.groundforce.repository.AuthRepositoryImpl
+import com.trapezoidlimited.groundforce.room.RoomAdditionalDetail
 import com.trapezoidlimited.groundforce.utils.*
 import com.trapezoidlimited.groundforce.viewmodel.AuthViewModel
 import com.trapezoidlimited.groundforce.viewmodel.ViewModelFactory
@@ -27,6 +30,8 @@ import retrofit2.Retrofit
 import javax.inject.Inject
 import com.trapezoidlimited.groundforce.room.RoomAgent
 import com.trapezoidlimited.groundforce.viewmodel.MissionsViewModel
+import java.io.InputStream
+import java.lang.Exception
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -56,6 +61,9 @@ class AgentDashboardFragment : Fragment() {
     private lateinit var isVerified: String
     private var missionCompleted = 0
     private var surveyCompleted = 0
+    private lateinit var banks: BankJson
+    private val gson by lazy { EntryApplication.gson }
+    private var bankCode = ""
 
 
     override fun onCreateView(
@@ -121,6 +129,9 @@ class AgentDashboardFragment : Fragment() {
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
 
+        banks = gson.fromJson(readJson(requireActivity()), BankJson::class.java)
+
+
         /** Setting date  **/
 
         val sdf = SimpleDateFormat("MMM d, yyyy", Locale.US)
@@ -135,7 +146,6 @@ class AgentDashboardFragment : Fragment() {
         /** Checking if User is verified */
 
         checkUserVerified(isVerified)
-
 
 
         binding.fragmentAgentDashboardMissionsButtonIb.setOnClickListener {
@@ -158,13 +168,13 @@ class AgentDashboardFragment : Fragment() {
             findNavController().navigate(R.id.action_agentDashboardFragment_to_paymentHistory)
         }
 
-        binding.fragmentAgentViewDetailsTv.setOnClickListener {
+        binding.agentDashboardFragmentCompletedTaskCv.setOnClickListener {
             // Setting currentItem value for mission-survey-history viewpager
             DataListener.msCurrentItem = MISSIONCOMPLETED
             findNavController().navigate(R.id.action_agentDashboardFragment_to_historyFragment)
         }
 
-        binding.fragmentAgentSurveyViewDetailsTv.setOnClickListener {
+        binding.agentDashboardFragmentSurveyCv.setOnClickListener {
             // Setting currentItem value for mission-survey-history viewpager
             DataListener.msCurrentItem = SURVEYCOMPLETED
             findNavController().navigate(R.id.action_agentDashboardFragment_to_historyFragment)
@@ -172,7 +182,7 @@ class AgentDashboardFragment : Fragment() {
 
         mViewModel.getMissionResponse.observe(viewLifecycleOwner, {
 
-            when(it) {
+            when (it) {
                 is Resource.Success -> {
                     val missionCompleted = it.value.data?.data?.size
 
@@ -189,7 +199,7 @@ class AgentDashboardFragment : Fragment() {
 
         viewModel.getSurveyResponse.observe(viewLifecycleOwner, {
 
-            when(it) {
+            when (it) {
                 is Resource.Success -> {
                     val surveyCompleted = it.value.data?.userSurveyToReturn?.size
 
@@ -215,26 +225,62 @@ class AgentDashboardFragment : Fragment() {
 
                     val firstName = response.value.data?.firstName.toString()
 
-                    val lastName = response.value.data?.lastName
+                    val lastName = response.value.data?.lastName.toString()
 
-                    val avatarUrl = response.value.data?.avatarUrl
+                    val email = response.value.data?.email.toString()
+
+                    val residentialAddress = response.value.data?.residentialAddress.toString()
+
+                    val avatarUrl = response.value.data?.avatarUrl.toString()
 
                     val isVerified = response.value.data?.isVerified.toString()
 
-                    val bank = response.value.data?.bankName.toString()
+                    var bank = response.value.data?.bankName.toString()
 
-                    val accountNum = response.value.data?.accountNumber.toString()
+                    var accountNum = response.value.data?.accountNumber.toString()
 
+                    val gender = response.value.data?.gender.toString()
+
+                    val additionNumber = response.value.data?.additionalPhoneNumber.toString()
+
+                    val publicId = response.value.data?.publicId.toString()
 
                     val isLocationVerified = response.value.data?.isLocationVerified.toString()
 
-                    if (avatarUrl != null) {
-                        saveToSharedPreference(requireActivity(), AVATAR_URL, avatarUrl)
+                    val religion = response.value.data?.religion.toString()
+
+                    val dob = response.value.data?.dob.toString()
+
+                    val accountName = response.value.data?.accountName.toString()
+
+
+                    binding.agentDashboardFragmentNameTv.text = "Hello $firstName"
+
+
+                    for (data in banks.data) {
+
+                        if (bank == "UBA") {
+                            bank = "United Bank for Africa"
+                        }
+
+                        if (bank == data.name) {
+                            bankCode = data.code
+                        }
+
                     }
 
-                    if (lastName != null) {
-                        saveToSharedPreference(requireActivity(), LASTNAME, lastName)
+
+                    if (accountNum == "null") {
+                        accountNum = "0000000000"
                     }
+
+                    if (bank == "null") {
+                        bank = "Bank Name"
+                    }
+
+                    saveToSharedPreference(requireActivity(), AVATAR_URL, avatarUrl)
+
+                    saveToSharedPreference(requireActivity(), LASTNAME, lastName)
 
                     saveToSharedPreference(requireActivity(), FIRSTNAME, firstName)
 
@@ -246,6 +292,20 @@ class AgentDashboardFragment : Fragment() {
 
                     saveToSharedPreference(requireActivity(), ACCOUNTNUMBER, accountNum)
 
+                    saveToSharedPreference(requireActivity(), EMAIL, email)
+
+                    saveToSharedPreference(requireActivity(), ADDRESS, residentialAddress )
+
+                    saveToSharedPreference(requireActivity(), RELIGION, religion )
+
+                    saveToSharedPreference(requireActivity(), GENDER, gender )
+
+                    saveToSharedPreference(requireActivity(), DOB, dob )
+
+                    saveToSharedPreference(requireActivity(), ADDITIONALPHONENUMBER, additionNumber)
+
+                    saveToSharedPreference(requireActivity(), ACCOUNTNAME, accountName)
+
 
                     /** Checking if User is verified */
 
@@ -256,26 +316,34 @@ class AgentDashboardFragment : Fragment() {
 
                     /** Adding Agent Details to Room Database */
 
-                    Toast.makeText(
-                        requireContext(),
-                        response.value.data?.firstName!!,
-                        Toast.LENGTH_SHORT
-                    )
-                        .show()
-
 
                     val roomAgent = RoomAgent(
                         agentId = 1,
                         id = response.value.data?.id!!,
-                        lastName = response.value.data.lastName,
-                        firstName = response.value.data.firstName,
-                        email = response.value.data.email,
-                        residentialAddress = response.value.data.residentialAddress,
-                        dob = response.value.data.dob,
-                        gender = response.value.data.gender,
+                        lastName = lastName,
+                        firstName = firstName,
+                        email = email,
+                        residentialAddress = residentialAddress,
+                        dob = dob,
+                        gender = gender,
                     )
 
                     roomViewModel.addAgent(roomAgent)
+
+
+                    val roomAdditionalDetail = RoomAdditionalDetail(
+                        agentId = 1,
+                        bankCode = bankCode,
+                        accountNumber = accountNum,
+                        religion = religion,
+                        additionalPhoneNumber = additionNumber,
+                        gender = gender,
+                        avatarUrl = avatarUrl,
+                        publicId = publicId,
+                        accountName = accountName
+                    )
+
+                    roomViewModel.addAdditionalDetail(roomAdditionalDetail)
 
 
                 }
@@ -304,7 +372,12 @@ class AgentDashboardFragment : Fragment() {
 
 
         binding.agentDashboardUpdateNowBtn.setOnClickListener {
-            findNavController().navigate(R.id.uploadImageFragment)
+            val avatarUrl = loadFromSharedPreference(requireActivity(), AVATAR_URL)
+            if ( avatarUrl == "null") {
+                findNavController().navigate(R.id.uploadImageFragment)
+            } else {
+                findNavController().navigate(R.id.updateProfileFragment)
+            }
         }
 
         // Navigate to Home on Back Press
@@ -319,6 +392,12 @@ class AgentDashboardFragment : Fragment() {
 
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        viewModel.getUser(userId)
+    }
+
     private fun checkUserVerified(isVerified: String) {
 
         if (isVerified == "true") {
@@ -327,6 +406,32 @@ class AgentDashboardFragment : Fragment() {
         } else {
             setVisibility(incompleteUserDetailsConstraintLayout)
         }
+    }
+
+    private fun readJson(context: Context): String? {
+        var inputStream: InputStream? = null
+
+        val jsonString: String
+
+        try {
+            inputStream = context.assets.open("bank.json")
+
+            val size = inputStream.available()
+
+            val buffer = ByteArray(size)
+
+            inputStream.read(buffer)
+
+            jsonString = String(buffer)
+
+            return jsonString
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            inputStream?.close()
+        }
+
+        return null
     }
 
 

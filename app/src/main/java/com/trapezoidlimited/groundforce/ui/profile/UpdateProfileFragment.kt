@@ -85,7 +85,6 @@ class UpdateProfileFragment : Fragment() {
         accountNumberEditText = binding.fragmentUpdateProfileAccountNumEt
         additionalPhoneNumberEditText = binding.fragmentUpdateProfileAdditionalNumEt
         genderEditText = binding.fragmentUpdateProfileGenderTil.editText!!
-        religionEditText = binding.fragmentUpdateProfileReligionTil.editText!!
         bankCodeEditText = binding.fragmentUpdateProfileBankCodeEt
 
         /** set title of the toolbar **/
@@ -119,6 +118,8 @@ class UpdateProfileFragment : Fragment() {
                     ).show()
 
                     /** Saving to shared preference that user is verified **/
+
+
 
                     saveToSharedPreference(requireActivity(), IS_VERIFIED, "true")
 
@@ -165,11 +166,6 @@ class UpdateProfileFragment : Fragment() {
         }
 
 
-        val religions = listOf("Christian", "Muslim", "Others")
-        val adapterReligion = ArrayAdapter(requireContext(), R.layout.list_item, religions)
-        (binding.fragmentUpdateProfileReligionTil.editText as? AutoCompleteTextView)?.setAdapter(
-            adapterReligion
-        )
 
         val genders = listOf("Male", "Female", "Others")
         val adapterGender = ArrayAdapter(requireContext(), R.layout.list_item, genders)
@@ -221,9 +217,12 @@ class UpdateProfileFragment : Fragment() {
             } else {
                 progressBar.show(updateButton)
 
+                bankName = bankNameEditText.text.toString()
+
+                println(bankName)
+
                 bankCode = bankCodeEditText.text.toString()
                 accountNumber = accountNumberEditText.text.toString()
-                religion = religionEditText.text.toString()
                 additionNumber = additionalPhoneNumberEditText.text.toString()
                 gender = genderEditText.text.toString()
                 agentGender = if (gender == "Male") {
@@ -234,7 +233,7 @@ class UpdateProfileFragment : Fragment() {
                     "o"
                 }
 
-                val bankName = bankNameEditText.text.toString()
+
 
                 avatarUrl = loadFromSharedPreference(requireActivity(), AVATAR_URL)
                 publicId = loadFromSharedPreference(requireActivity(), PUBLIC_ID)
@@ -247,7 +246,6 @@ class UpdateProfileFragment : Fragment() {
                 val verifyAccountRequest = VerifyAccountRequest(
                     bankCode,
                     accountNumber,
-                    religion,
                     additionNumber,
                     agentGender
                 )
@@ -262,9 +260,7 @@ class UpdateProfileFragment : Fragment() {
         binding.constraintLayout.setOnClickListener {
             hideKeyboard()
         }
-        binding.fragmentUpdateProfileReligionTilAct.setOnClickListener {
-            hideKeyboard()
-        }
+
         binding.fragmentUpdateProfileGenderTilAct.setOnClickListener {
             hideKeyboard()
         }
@@ -294,12 +290,6 @@ class UpdateProfileFragment : Fragment() {
 //                errorMessage = JDErrorConstants.INCOMPLETE_PHONE_NUMBER_ERROR,
 //                validator = { it.jdValidateAdditionalPhone(it.text.toString()) }
 //            ),
-            JDataClass(
-                editText = religionEditText,
-                editTextInputLayout = binding.fragmentUpdateProfileReligionTil,
-                errorMessage = JDErrorConstants.NAME_FIELD_ERROR,
-                validator = { it.jdValidateName(it.text.toString()) }
-            ),
             JDataClass(
                 editText = genderEditText,
                 editTextInputLayout = binding.fragmentUpdateProfileGenderTil,
